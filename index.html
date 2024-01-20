@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>TabTree</title>
+	<script src="libs/ace.js"></script>
+	<script src="libs/d3.v7.min.js" charset="utf-8"></script>
+	<style type="text/css">
+		body{
+			margin:0;
+			overflow:hidden;
+		}
+		*{
+			box-sizing: border-box;
+			outline:none;
+			font-family:'Monaco', monospace;
+		}
+		a{
+			color:#fff;
+		}
+		#chart-area path {
+			fill: none;
+			stroke-width: .5px;
+			stroke: rgba(0, 0, 0, .5);
+		}
+		link{
+
+		}
+
+		#left{
+			width:30%;
+			height:100vh;
+			background:red;
+			float:left;
+			font-family:'Monaco', monospace;
+		}
+
+		#nav{
+			display:flex;
+			justify-content:space-between;
+			width:100%;
+			height:32px;
+			background:#aaa;
+			padding:3px;
+			color:#111;
+			border-bottom:2px solid #111;
+		}
+		.nav-item, #fontsize{
+			opacity:.7;
+			cursor:pointer;
+			float:left;
+			margin-left:10px;
+		}
+		.nav-item:hover, #fontsize:hover{
+			opacity: 1;
+		}
+		#fontsize{
+			border:2px solid #111;
+			background:none;
+			padding:1px;
+			border-radius: 4px;
+			opacity: .7;
+		}
+
+		#input{
+			width:100%;
+			height:calc(100vh - 32px);
+			font-size:10pt;
+		}
+		.label{
+			stroke-width:.3px;
+			stroke:#fff;
+			fill:#000;
+			font-family:monospace;
+			text-rendering:optimizeLegibility;
+		}
+		#chart-area{
+			background:#eee;
+		}
+
+		#about{
+			position:fixed;
+			top:10vh;
+			left:25vw;
+			top:10vh;
+			z-index:999;
+			width:50vw;
+			height:75vh;
+			border:1px solid #fff;
+			color:#fff;
+			padding:15px;
+			background:rgba(0,0,0,.75);
+			overflow-y:auto;
+			font-size:10pt;
+			display:none;
+		}
+		.about-version{
+			font-size:8pt;
+			margin-left:1em;
+		}
+		#about-x{
+			position:absolute;
+			top:15px;
+			right:10px;
+			font-size:20pt;
+			line-height:0;
+			opacity:.7;
+			cursor: pointer;
+		}
+		#about-x:hover{
+			opacity: 1;
+		}
+		#about-bg{
+			position:fixed;
+			z-index:-1;
+			left:0;
+			top:0;
+			width:100vw;
+			height:100vh;
+			background:rgba(0,0,0,.5);
+		}
+	</style>
+	<style type="text/css" media="print">
+		body{
+			width:100%;
+			height:100%;
+		}
+		#left{
+			display:none;
+		}
+		#chart-area{
+			background:none;
+		}
+		.label{
+			font-size:8pt;
+			stroke:none;
+		}
+		#about{
+			display:none;
+		}
+	</style>
+</head>
+<body>
+	<div id="about">
+		<h2>TabTree<span class="about-version">v1.0</span></h2>
+		<p>
+			<i>Tab into your mind to quickly create tree maps!</i><br>
+			cc <a href="https://teddavis.org" target="_blank">teddavis.org</a> 2024
+		</p>
+
+		<p>
+			TabTree combines <a href="https://ace.c9.io/" target="_blank">Ace Editor</a> + <a href="https://d3js.org/" target="_blank">D3</a>, to 'live-code' mindmap trees with the keyboard only. The tree diagram is auto-compiled on every keystroke!
+		</p>
+
+		<p><u>USAGE</u><br>
+			  - rename topic to your given theme<br>
+			  - hit enter and tab to create child nodes<br>
+			  - hit enter to create a sibling at same level<br>
+			  - use '#' to hide any lines from diagram<br>
+			  - blank lines are ignored, can use for textual organization<br>
+			  - that's it!
+		</p>
+
+		<p><u>SHORTCUTS</u><br>
+			  - ALT + UP/DOWN » offset line[s]<br>
+			  - CMD + ALT + UP/DOWN » duplicate line[s]<br>
+			  - CMD + D » delete line[s]<br>
+		</p>
+
+		<p><u>EXPORT</u><br>
+			Your current TabTree is always saved in localStorage, so it will be there when reopening website. However you can export it as a plain text document using the save button. For a PDF, press the print button and save as PDF in the printer dialog.
+		</p>
+
+		<p><u>OFFLINE</u><br>
+			TabTree can also be used locally and completely offline, download the <a href="" target="_blank">source code</a> and simply drag and drop the 'index.html' file into your browser.
+		</p>
+		
+		<div id="about-x" onclick='about(false)'>x</div>
+		<div id="about-bg" onclick='about(false)'></div>
+	</div>
+
+	<div id="left">
+		<div id="nav">
+			<div onclick="about()">TabTree</div>
+			
+			<div>
+				<div class="nav-item" onclick="about()"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-help-circle"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12" y2="17"></line></svg></div>
+
+				<select id="fontsize" onchange="fontsize(this.value)"></select>
+				
+				<div class="nav-item" onclick="clearEditor()"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-file-plus"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg></div>
+				
+				<div class="nav-item" onclick="saveEditor()"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-save"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg></div>
+				
+				<div class="nav-item" onclick="print()"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-printer"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg></div>
+			</div>
+		</div>
+		<div id="input"></div>
+	</div>
+	
+	<textarea id="output" style="display:none;"></textarea>
+	<div id="chart-area"></div>
+
+	
+
+	<script type="text/javascript">
+		var tabtree = {
+			editor:'topic',
+			fontsize:10,
+		}
+		
+		var input = document.getElementById('input')
+		var output = document.getElementById('output')
+		var selFontsize = document.getElementById('fontsize')
+		var sizes = [8,9,10,11,12,13,14]
+		var data
+
+		selFontsize.innerHTML = ''
+		sizes.forEach((s)=>{
+			selFontsize.innerHTML += `<option>${s}</option>`
+		})
+
+		var editor = ace.edit("input");
+		var session = editor.getSession()
+		editor.setTheme("ace/theme/ambiance");
+		editor.setOptions({
+			showPrintMargin: false,
+			animatedScroll: false,
+			displayIndentGuides: false,
+			useWorker: true,
+			showLineNumbers: false,
+			showGutter: false,
+			scrollPastEnd:1,
+			wrap:false,
+			tabSize: 4, useSoftTabs: false,
+			showInvisibles: true,
+		});
+
+		var changeTimer
+		editor.getSession().on('change', function(delta) {
+			clearTimeout(changeTimer)			
+			changeTimer = setTimeout(tabParse, 500)
+		});
+
+		// checkstorage
+		if(localStorage.hasOwnProperty('tabtree')){
+			loadSettings()
+			editor.setValue(tabtree.editor, 1)
+			fontsize(tabtree.fontsize, false)
+		}else{
+			initEditor()
+			about()
+		}
+
+		function loadSettings(){
+			tabtree = JSON.parse(localStorage.getItem('tabtree'))
+		}
+
+		function saveSettings(){
+			localStorage.setItem('tabtree', JSON.stringify(tabtree))
+		}
+
+		function fontsize(val, update = true){
+			// update editor
+			input.style.fontSize = val + 'pt'
+
+			// update map
+			var sheet = document.createElement('style')
+			sheet.innerHTML = `.label {font-size:${val}pt;}`;
+			document.body.appendChild(sheet);
+			
+			// update select
+			selFontsize.value = val
+
+			if(update){
+				tabtree.fontsize = val
+				saveSettings()
+			}
+		}
+
+		function clearEditor(){
+			var replace = confirm('New Tree?')
+			if(replace){
+				initEditor()
+				saveSettings()
+			}
+		}
+
+		function initEditor(){
+			editor.setValue('topic')
+			editor.focus()
+			editor.selection.selectLine();
+		}
+
+		function saveEditor(){
+			// Create element with <a> tag
+			const link = document.createElement("a");
+
+			// Create a blog object with the file content which you want to add to the file
+			const file = new Blob([tabtree.editor], { type: 'text/plain' });
+
+			// Add file content in the object URL
+			link.href = URL.createObjectURL(file);
+
+			// Add file name
+			link.download = `tabtree_${tabtree.editor.split('\n')[0]}.txt`;
+
+			// Add click event to <a> tag to save file.
+			link.click();
+			URL.revokeObjectURL(link.href);
+		}
+
+		function about(show = true){
+			let aboutElm = document.getElementById('about')
+			if(show){
+				aboutElm.style.display = 'block'
+			}else{
+				aboutElm.style.display = 'none'
+			}
+		}
+
+		
+		// based on https://stackoverflow.com/a/52120780
+		function node2(title,lvl){
+			var children = [],
+			parent = null;
+			return {
+				name:title,
+				children:children,
+				lvl:()=>lvl==undefined?-1:lvl,
+				parent:()=>parent, //as a function to prevent circular reference when parse to JSON
+				setParent:p=>{parent=p},
+				appendChildren: function(c){
+					children.push(c); 
+					c.setParent(this);
+					return this
+				},
+			}
+		}
+		function append_rec(prev,curr) {
+			if(typeof(curr)=='string'){ //in the recursive call it's a object
+				curr = curr.split('\t');//or tab (\t)
+				curr = node2(curr.pop(),curr.length);
+			}
+			if(curr.lvl()>prev.lvl()){//curr is prev's child
+				prev.appendChildren(curr);
+			}else if(curr.lvl()<prev.lvl()){
+				if(prev.children.length == 0){delete prev.children}
+				append_rec(prev.parent(),curr) //recursive call to find the right parent level
+			}else{//curr is prev's sibling
+				if(prev.children.length == 0){delete prev.children}
+				prev.parent().appendChildren(curr);
+			}
+			return curr;
+		}
+
+		function removeComments(code){
+			return code.replace(/.*#.*/gm, '').replace(/(^[ \t]*\n)/gm, '')
+		}
+
+		function tabParse(){
+			tabtree.editor = editor.getValue()
+			saveSettings()
+			root = node2('root');
+			var curTree = editor.getValue()
+			curTree = removeComments(curTree)
+			curTree.toString().split('\n').reduce(append_rec,root); 
+			data = root.children//JSON.stringify(root.children,null,3)
+			output.value = JSON.stringify(root.children,null,3)
+			doMap()
+		}
+
+		tabParse()
+
+		window.addEventListener('resize', doMap );
+
+
+		function doMap(){
+			// built upon : https://codepen.io/nvelden/pen/LYmveWz?editors=1111
+			var margin = {top: 10, right: 10, bottom: 10, left: 25},
+			width = (window.innerWidth*.6) - margin.left - margin.right,
+			height = 500 - margin.top - margin.bottom;
+
+			// add radial??
+			var tree = d3.tree()
+			.size([height, width])
+			.size([height-margin.top-margin.bottom,width-margin.left-margin.right])
+
+
+			//Create root 
+			var root = d3.hierarchy(data[0], function(d) { return d.children;});
+
+			document.getElementById('chart-area').innerHTML = ''
+			
+			//Attach canvas element
+			var svg = d3.select("#chart-area")
+			.append("svg")
+			.attr("width", window.innerWidth*.7)
+			.attr("height", 1000)
+
+			
+			var g = svg
+			.append("g")
+			.attr('transform','translate('+ margin.left +','+ margin.right +')');
+
+			var link = g.selectAll(".link")
+			.data(tree(root).links())
+			.enter()
+			.append("path")
+			.attr("class", "link")
+			.attr("d", d3.linkHorizontal()
+			.x(function(d) {return d.y;})
+			.y(function(d) {return d.x;}));
+			
+			var node = g.selectAll(".node")
+			.data(root.descendants())
+			.enter()
+			.append("g") 
+			.attr("class", "link") 
+			.attr("class", d => { return "node" + (d.children ? " node--internal" : " node--leaf")})
+			.attr("transform", d => { return "translate(" + d.y + ","+ d.x + ")" ; })
+
+			var text = g.selectAll("text")
+			.data(root.descendants())
+			.enter().append("text")
+			.text(d => d.data.name)
+			.attr("class", "label glow") 
+			.attr('text-anchor', "start")
+			.attr("x", d => d.y+3)
+			.attr("y", d => d.x-3)
+			.clone(true).lower()
+			.attr("stroke", "white");
+
+
+			circle = node.append("circle")
+			.attr("r", 2.5)
+
+		}
+	</script>
+</body>
+</html>
