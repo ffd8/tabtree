@@ -120,6 +120,14 @@
 			height:100vh;
 			background:rgba(0,0,0,.5);
 		}
+		.pulse{
+			animation:sync .5s infinite
+		}
+		@keyframes sync {
+			0%	 { opacity: 1 }
+			50%	 { opacity: .25 }
+			100% { opacity: 1 }
+		}
 	</style>
 	<style type="text/css" media="print">
 		body{
@@ -169,7 +177,7 @@
 		</p>
 
 		<p><u>EXPORT</u><br>
-			Your current TabTree is always saved in localStorage, so it will be there when reopening website. However you can export it as a plain text document using the save button. For a PDF, press the print button and save as PDF in the printer dialog.
+			Your current TabTree is always saved in localStorage, so it will be there when reopening website. However you can export it as a plain text document using the save button. For a PDF, press the print button and save as PDF in the printer dialog. To share a TabTree, click the link icon for a URL that will load the tree dynamically.
 		</p>
 
 		<p><u>OFFLINE</u><br>
@@ -190,7 +198,9 @@
 				<select id="fontsize" onchange="fontsize(this.value)"></select>
 				
 				<div class="nav-item" onclick="clearEditor()"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-file-plus"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg></div>
-				
+
+				<div id="nav-linkcode" class="nav-item" onclick="linkCode()"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-link"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></div>
+
 				<div class="nav-item" onclick="saveEditor()"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-save"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg></div>
 				
 				<div class="nav-item" onclick="print()"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-printer"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg></div>
@@ -208,7 +218,11 @@
 		var tabtree = {
 			editor:'topic',
 			fontsize:10,
+			remote: 'https://ffd8.github.io/tabtree/',
+			local: 'http://localhost:8888/tabtree/',
 		}
+
+		var devMode = false
 		
 		var input = document.getElementById('input')
 		var output = document.getElementById('output')
@@ -253,8 +267,51 @@
 			about()
 		}
 
+		// load code via URL
+		if(checkParam('tree')){
+			setTimeout(function(){
+				var loadTree = b64_to_utf8(getParam('tree'))
+				var confirmTree = confirm('Replace current Tree with URL import? Preview:\n\n'+loadTree.split('\n').slice(0, 4).join('\n').replaceAll('\t', '    ')+'\n...')
+				if(confirmTree){
+					editor.setValue(loadTree, 1)
+					saveSettings()
+					clearParam();
+				}
+			}, 100);
+		}
+
+		function getParam(paramSearch){
+			let params = document.location.search.substring(1).split('&');
+			for(let i=0; i<params.length; i++){
+				let keyVal = params[i].split('=');
+				if(keyVal[0] == paramSearch){
+					return keyVal[1];
+				}
+			}
+		}
+
+		function clearParam(){
+			window.history.replaceState(null, null, window.location.pathname);
+		}
+
+		function checkParam(paramSearch){
+			return getParam(paramSearch) != undefined ? true : false
+		}
+
+		function elmPulse(e){
+			let elm = document.getElementById(e)
+			elm.classList.add('pulse')
+			setTimeout(()=>{
+				elm.classList.remove('pulse')
+			}, 1000)
+		}
+
 		function loadSettings(){
-			tabtree = JSON.parse(localStorage.getItem('tabtree'))
+			tabtreeTemp = JSON.parse(localStorage.getItem('tabtree'))
+			for (const [key, value] of Object.entries(tabtreeTemp)) {
+			  // console.log(`${key}: ${value}`);
+				tabtree[key] = value
+			}
 		}
 
 		function saveSettings(){
@@ -309,6 +366,47 @@
 			// Add click event to <a> tag to save file.
 			link.click();
 			URL.revokeObjectURL(link.href);
+		}
+
+		// share CODE via URL
+		function linkCode(elm){
+			let baseCode = utf8_to_b64(tabtree.editor)
+			var baseURL = tabtree.remote
+			if(devMode){
+				baseURL = tabtree.local
+			}
+
+			clipboard(baseURL+'?tree=' + baseCode);
+
+			elmPulse('nav-linkcode')
+
+			// share info
+			// let oldContent = elm._tippy.props.content;
+			// elm._tippy.setContent('Copied to clipboard!');
+			// elm._tippy.show(200);
+			// setTimeout(function(){
+			// 	elm._tippy.hide();
+			// 	elm._tippy.setContent(oldContent);
+			// }, 2000);
+
+		}
+
+		function clipboard(txt){
+			let dummy = document.createElement('input');
+			document.body.appendChild(dummy);
+			dummy.value = txt;
+			dummy.select();
+			document.execCommand('copy');
+			document.body.removeChild(dummy);
+		}
+
+		// https://developer.mozilla.org/de/docs/Web/API/WindowOrWorkerGlobalScope/btoa
+		function utf8_to_b64(str) {
+			return window.btoa(unescape(encodeURIComponent(str)));
+		}
+
+		function b64_to_utf8(str) {
+			return decodeURIComponent(escape(window.atob(str)));
 		}
 
 		function about(show = true){
@@ -378,9 +476,9 @@
 
 		function doMap(){
 			// built upon : https://codepen.io/nvelden/pen/LYmveWz?editors=1111
-			var margin = {top: 10, right: 10, bottom: 10, left: 25},
+			var margin = {top: 0, right: 10, bottom: 0, left: 25},
 			width = (window.innerWidth*.6) - margin.left - margin.right,
-			height = 500 - margin.top - margin.bottom;
+			height = (window.innerHeight*.98) - margin.top - margin.bottom;
 
 			// add radial??
 			var tree = d3.tree()
@@ -397,7 +495,7 @@
 			var svg = d3.select("#chart-area")
 			.append("svg")
 			.attr("width", window.innerWidth*.7)
-			.attr("height", 1000)
+			.attr("height", window.innerHeight*1)
 
 			
 			var g = svg
