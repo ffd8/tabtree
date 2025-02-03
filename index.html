@@ -517,7 +517,9 @@
 			if(childCount[level] == undefined){
 				childCount[level] = {count:0, length:0, total: 0}
 				if(level > 0){
+					if(childCount[level-1].total < childCount[level-1].length)
 					childCount[level-1].total = childCount[level-1].length
+					if(childCount[level].total < childCount[level-1].length)
 					childCount[level].total = childCount[level-1].length
 				}
 			}
@@ -595,9 +597,10 @@
 			.x(function(d) {
 				let dDist = childCount[d.depth].total * tabtree.fontsize
 				let dGap = ((width - (childCount[levelSize-1].total * tabtree.fontsize)) / levelSize*.9)
-				console.log(dGap)
-				if(d.depth > 0)
-				d.y = childCount[d.depth-1].total * tabtree.fontsize + d.depth * dGap//dGap;
+				// console.log(width - childCount[levelSize-1].total * tabtree.fontsize + ' - ' + d.data.name)
+				if(d.depth > 0){
+					d.y = childCount[d.depth-1].total * tabtree.fontsize + d.depth * (dGap > 0 ? dGap : 1)//dGap;
+				}
 				return d.y;
 			})
 			// .x(function(d) {return d.y;})
