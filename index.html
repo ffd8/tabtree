@@ -69,9 +69,10 @@
 			font-size:10pt;
 		}
 		.label{
-			stroke-width:.3px;
-			stroke:#fff;
+/*			stroke-width:.3px;*/
+/*			stroke:#fff;*/
 			fill:#000;
+			filter:drop-shadow(1px 1px #fff);
 			font-family:monospace;
 			text-rendering:optimizeLegibility;
 		}
@@ -160,7 +161,7 @@
 </head>
 <body>
 	<div id="about">
-		<h2>TabTree<span class="about-version">v1.0</span></h2>
+		<h2>TabTree<span class="about-version">v1.1</span></h2>
 		<p>
 			<i>Tab into your mind to quickly create tree maps!</i><br>
 			cc <a href="https://teddavis.org" target="_blank">teddavis.org</a> 2024
@@ -497,7 +498,7 @@
 			// console.log(root.children[0])
 			// console.log(root)
 			countChildren(root.children[0], 0)
-			console.log(childCount)
+			// console.log(childCount)
 			doMap()
 		}
 
@@ -529,8 +530,8 @@
 			// set node depth total
 			if(level > 0){
 					// childCount[level].total = childCount[level].length + childCount[level-1].total
-					if(childCount[level].total < childCount[level-1].length + childCount[level-1].total){
-						childCount[level].total = childCount[level-1].length + childCount[level-1].total
+					if(childCount[level].total < childCount[level].length + childCount[level-1].total){
+						childCount[level].total = childCount[level].length + childCount[level-1].total
 					}
 					// childCount[level].total = childCount[level].length*1.3
 
@@ -594,9 +595,9 @@
 			.x(function(d) {
 				let dDist = childCount[d.depth].total * tabtree.fontsize
 				let dGap = ((width - (childCount[levelSize-1].total * tabtree.fontsize)) / levelSize*.9)
-				// console.log(dGap)
+				console.log(dGap)
 				if(d.depth > 0)
-				d.y = childCount[d.depth-1].total * tabtree.fontsize + d.depth * 10//dGap;
+				d.y = childCount[d.depth-1].total * tabtree.fontsize + d.depth * dGap//dGap;
 				return d.y;
 			})
 			// .x(function(d) {return d.y;})
