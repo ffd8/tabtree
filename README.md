@@ -1,6 +1,7 @@
 # tabtree
 Tab into your mind to quickly create tree maps!  
 cc [teddavis.org](https://teddavis.org) 2024–2025  
+v0.2.0
 
 TabTree combines [Ace Editor](https://ace.c9.io/) + [D3](https://d3js.org/), to 'live-code' mindmap trees with the keyboard only. The tree diagram is auto-compiled on every keystroke!
 
