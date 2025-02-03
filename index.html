@@ -77,6 +77,9 @@
 		}
 		#chart-area{
 			background:#eee;
+			width:70%;
+			height:100vh;
+			overflow:auto;
 		}
 
 		#about{
@@ -130,15 +133,21 @@
 		}
 	</style>
 	<style type="text/css" media="print">
-		body{
-			width:100%;
-			height:100%;
+		@page {
+		    margin: 10mm;
+		}
+		body, html{
+			width: 100vw;
+  			height: 100%;
 		}
 		#left{
 			display:none;
 		}
 		#chart-area{
 			background:none;
+			width: 100vw;
+  			height: 100%;
+			overflow-y:visible;
 		}
 		.label{
 			font-size:8pt;
@@ -215,6 +224,13 @@
 	
 
 	<script type="text/javascript">
+		/*
+			- √auto resize to fit # of nodes
+			- √auto center...
+			- try to have from top-downward structure, instead of center out
+			- wrap long labels: https://gist.github.com/mbostock/7555321
+		*/
+
 		var tabtree = {
 			editor:'topic',
 			fontsize:10,
@@ -226,6 +242,7 @@
 		
 		var input = document.getElementById('input')
 		var output = document.getElementById('output')
+		var chart = document.getElementById('chart-area')
 		var selFontsize = document.getElementById('fontsize')
 		var sizes = [8,9,10,11,12,13,14]
 		var data
@@ -255,6 +272,8 @@
 		editor.getSession().on('change', function(delta) {
 			clearTimeout(changeTimer)			
 			changeTimer = setTimeout(tabParse, 500)
+			offset = delta.start.row/editor.session.getLength()
+			scrollChart(offset)
 		});
 
 		// checkstorage
@@ -278,6 +297,13 @@
 					clearParam();
 				}
 			}, 100);
+		}
+
+		function scrollChart(percent){
+			var body = document.body
+			var height = Math.max(body.scrollHeight, body.offsetHeight,
+  			chart.clientHeight, chart.scrollHeight, chart.offsetHeight);
+			chart.scrollTo({ top: height * percent });
 		}
 
 		function getParam(paramSearch){
@@ -333,6 +359,7 @@
 			if(update){
 				tabtree.fontsize = val
 				saveSettings()
+				doMap()
 			}
 		}
 
@@ -466,6 +493,11 @@
 			curTree.toString().split('\n').reduce(append_rec,root); 
 			data = root.children//JSON.stringify(root.children,null,3)
 			output.value = JSON.stringify(root.children,null,3)
+			// console.log(output.value.match(/name/g))
+			// console.log(root.children[0])
+			// console.log(root)
+			countChildren(root.children[0], 0)
+			console.log(childCount)
 			doMap()
 		}
 
@@ -473,43 +505,103 @@
 
 		window.addEventListener('resize', doMap );
 
+		function countChildren(obj, level){
+			//console.log(obj.lvl())
+			// level = obj.lvl()
+			if(level == 0){
+				childCount = {total:0}
+			}
+
+			// setup each level
+			if(childCount[level] == undefined){
+				childCount[level] = {count:0, length:0, total: 0}
+				if(level > 0){
+					childCount[level-1].total = childCount[level-1].length
+					childCount[level].total = childCount[level-1].length
+				}
+			}
+
+			// set max length of each node
+			if(obj.name.length > childCount[level].length){
+				childCount[level].length = obj.name.length				
+			}
+
+			// set node depth total
+			if(level > 0){
+					// childCount[level].total = childCount[level].length + childCount[level-1].total
+					if(childCount[level].total < childCount[level-1].length + childCount[level-1].total){
+						childCount[level].total = childCount[level-1].length + childCount[level-1].total
+					}
+					// childCount[level].total = childCount[level].length*1.3
+
+				}else{
+					// childCount[level].total = childCount[level].length
+				}
+
+			// count children
+			if(obj.hasOwnProperty('children')){
+				childCount[level].count += obj.children.length
+				childCount.total += obj.children.length
+				for(let c of obj.children){
+					countChildren(c, level+1, )
+				}
+			}	
+		}
+
 
 		function doMap(){
+			var levelSize = Object.keys(childCount).length-1
+			var curWidth = 0, curDepth = -1
+			// console.log(levelSize)
+			var nodeSize = childCount.total//output.value.match(/name/g).length
+			// console.log(nodeSize)
 			// built upon : https://codepen.io/nvelden/pen/LYmveWz?editors=1111
 			var margin = {top: 0, right: 10, bottom: 0, left: 25},
-			width = (window.innerWidth*.6) - margin.left - margin.right,
-			height = (window.innerHeight*.98) - margin.top - margin.bottom;
+			width = (window.innerWidth*.7) - margin.left - margin.right,
+			// width = levelSize * tabtree.fontsize//(window.innerWidth/levelSize*1.7) - margin.left - margin.right,
+			height = nodeSize * tabtree.fontsize * 1.8//(window.innerHeight*1.98) - margin.top - margin.bottom; // *.98
 
 			// add radial??
-			var tree = d3.tree()
+			tree = d3.tree()
 			.size([height, width])
 			.size([height-margin.top-margin.bottom,width-margin.left-margin.right])
-
+			// .nodeSize([window.innerHeight/nodeSize*2, window.innerWidth/levelSize/2])
 
 			//Create root 
+			// console.log(tree)
 			var root = d3.hierarchy(data[0], function(d) { return d.children;});
 
-			document.getElementById('chart-area').innerHTML = ''
+			chart.innerHTML = ''
 			
 			//Attach canvas element
 			var svg = d3.select("#chart-area")
 			.append("svg")
 			.attr("width", window.innerWidth*.7)
-			.attr("height", window.innerHeight*1)
+			.attr("height", height*1.0 + 10) // *1
+			.attr('preserveAspectRatio', 'none')
 
 			
 			var g = svg
 			.append("g")
 			.attr('transform','translate('+ margin.left +','+ margin.right +')');
-
+			// console.log(root)
 			var link = g.selectAll(".link")
 			.data(tree(root).links())
 			.enter()
 			.append("path")
 			.attr("class", "link")
 			.attr("d", d3.linkHorizontal()
-			.x(function(d) {return d.y;})
-			.y(function(d) {return d.x;}));
+			.x(function(d) {
+				let dDist = childCount[d.depth].total * tabtree.fontsize
+				let dGap = ((width - (childCount[levelSize-1].total * tabtree.fontsize)) / levelSize*.9)
+				// console.log(dGap)
+				if(d.depth > 0)
+				d.y = childCount[d.depth-1].total * tabtree.fontsize + d.depth * 10//dGap;
+				return d.y;
+			})
+			// .x(function(d) {return d.y;})
+			.y(function(d) {return d.x;})
+			);
 			
 			var node = g.selectAll(".node")
 			.data(root.descendants())
@@ -525,7 +617,7 @@
 			.text(d => d.data.name)
 			.attr("class", "label glow") 
 			.attr('text-anchor', "start")
-			.attr("x", d => d.y+3)
+			.attr("x", d => { return d.y+3;})
 			.attr("y", d => d.x-3)
 			.clone(true).lower()
 			.attr("stroke", "white");
@@ -534,6 +626,9 @@
 			circle = node.append("circle")
 			.attr("r", 2.5)
 
+			// Normalize for fixed-depth.
+			// nodes.forEach(function(d) { d.y = d.depth * 10; }); 
+			// node.
 		}
 	</script>
 </body>
