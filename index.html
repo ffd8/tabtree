@@ -248,6 +248,10 @@
 		var sizes = [8,9,10,11,12,13,14]
 		var data
 
+		 window.onbeforeprint = (event) => {
+	        chart.scrollTo(0, 0) // avoid cut off
+	    };
+
 		selFontsize.innerHTML = ''
 		sizes.forEach((s)=>{
 			selFontsize.innerHTML += `<option>${s}</option>`
@@ -581,12 +585,13 @@
 			.append("svg")
 			.attr("width", window.innerWidth*.7)
 			.attr("height", height*1.0 + 10) // *1
-			.attr('preserveAspectRatio', 'none')
+			.attr('preserveAspectRatio', 'none');
 
-			
+			var scale = 1
 			var g = svg
 			.append("g")
 			.attr('transform','translate('+ margin.left +','+ margin.right +')');
+
 			// console.log(root)
 			var link = g.selectAll(".link")
 			.data(tree(root).links())
@@ -600,6 +605,15 @@
 				// console.log(width - childCount[levelSize-1].total * tabtree.fontsize + ' - ' + d.data.name)
 				if(d.depth > 0){
 					d.y = childCount[d.depth-1].total * tabtree.fontsize + d.depth * (dGap > 0 ? dGap : 1)//dGap;
+				}
+
+				// auto-zoom out if too wide
+				if(d.y > chart.clientWidth){
+					// console.log(chart.clientWidth / d.y)
+					if((chart.clientWidth / d.y) + .4 > scale){
+						scale = chart.clientWidth / d.y - .2
+					}
+					g.attr('transform', `scale(${scale})`)
 				}
 				return d.y;
 			})
